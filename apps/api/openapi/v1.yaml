@@ -1,0 +1,409 @@
+openapi: 3.1.0
+info:
+  title: CodeQuest API
+  version: 1.0.0
+  description: |
+    Versioned HTTP contracts for the Phase 0 identity and authorization
+    boundary. This specification is ahead of the implementation: only
+    GET /health is currently served.
+servers:
+  - url: /v1
+tags:
+  - name: Authentication
+  - name: Users
+paths:
+  /auth/registrations:
+    post:
+      tags: [Authentication]
+      operationId: register
+      summary: Create an account
+      description: |
+        The response never confirms whether an email address is already in
+        use. A matching idempotency key and request replays the original
+        result; reusing the key with a different request returns 409.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '202':
+          description: Request accepted; no account-existence information is disclosed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /auth/sessions:
+    post:
+      tags: [Authentication]
+      operationId: createSession
+      summary: Authenticate and create a session
+      description: |
+        Returns the same generic 401 for an unknown account or incorrect
+        password. Successful responses set the opaque session cookie; neither
+        credentials nor token material is returned in the response body.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated; the session cookie is set.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: >-
+                Set both __Host-cq_session (HttpOnly) and __Host-cq_csrf
+                (readable by same-origin client code); both Secure,
+                SameSite=Lax, Path=/, host-only (no Domain), bounded Max-Age.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /auth/session:
+    get:
+      tags: [Authentication]
+      operationId: getCurrentSession
+      summary: Read the current session
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Current user and effective permissions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    delete:
+      tags: [Authentication]
+      operationId: deleteCurrentSession
+      summary: Revoke the current session
+      description: |
+        Requires a valid CSRF token. Revocation is idempotent and expires the
+        session cookie. The CSRF header must match the CSRF cookie; unsafe
+        cookie-authenticated requests also validate Origin against the
+        configured same-origin allowlist.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Session revoked and cookie expired.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Expired __Host-cq_session cookie with matching attributes.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/password-reset-requests:
+    post:
+      tags: [Authentication]
+      operationId: requestPasswordReset
+      summary: Request a password-reset link
+      description: |
+        Always returns the same 202 response, whether or not the address is
+        registered. Apply per-address and per-network rate limits. Never log
+        the address, reset token, or message contents.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+      responses:
+        '202':
+          description: Request accepted without account-existence disclosure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /auth/password-resets:
+    post:
+      tags: [Authentication]
+      operationId: resetPassword
+      summary: Replace a password using a single-use reset token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, newPassword]
+              properties:
+                token:
+                  type: string
+                  minLength: 32
+                  maxLength: 128
+                newPassword:
+                  $ref: '#/components/schemas/Password'
+      responses:
+        '204':
+          description: Password changed; outstanding sessions are revoked.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '410':
+          description: Token is invalid, expired, or already consumed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+  /admin/users:
+    get:
+      tags: [Users]
+      operationId: listUsers
+      summary: List users (administrative permission required)
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One bounded page of users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-cq_session
+      description: |
+        Opaque, random session token. HttpOnly, Secure, SameSite=Lax,
+        Path=/, no Domain. Production must use HTTPS. Never store raw token
+        material in the database, logs, analytics, or error responses.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID v4. Scope to the authenticated actor or normalized operation and retain for 24 hours.
+      schema:
+        type: string
+        format: uuid
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      description: Must exactly match the CSRF cookie for unsafe cookie-authenticated requests.
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 256
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 512
+      description: Opaque cursor returned by the prior page; do not infer offset semantics.
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+  schemas:
+    RegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          $ref: '#/components/schemas/Password'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 80
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+    Password:
+      type: string
+      minLength: 12
+      maxLength: 1024
+      description: >
+        Validate length and safe input bounds; hash with Argon2id. Never trim,
+        normalize, log, or echo a password.
+    Accepted:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: accepted
+    Session:
+      type: object
+      additionalProperties: false
+      required: [user, permissions, expiresAt]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            pattern: '^[a-z][a-z0-9]*(\.[a-z][a-z0-9_-]*)+$'
+        expiresAt:
+          type: string
+          format: date-time
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, email, displayName, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [pending, active, suspended]
+        createdAt:
+          type: string
+          format: date-time
+    UserPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        nextCursor:
+          type: [string, 'null']
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [status, code, message, requestId]
+      properties:
+        status:
+          type: integer
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]+$'
+        message:
+          type: string
+        requestId:
+          type: string
+          format: uuid
+        details:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code]
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+  responses:
+    BadRequest:
+      description: Malformed request or DTO validation failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthenticated:
+      description: Authentication required or credentials invalid; no account-existence disclosure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: Authenticated actor lacks permission or CSRF/origin validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Idempotency key was reused with a different request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimited:
+      description: Request rate limit exceeded.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'

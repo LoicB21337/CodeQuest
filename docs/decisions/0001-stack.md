@@ -27,8 +27,9 @@ des capacités de l’hébergement cible.
 - La spécification de phase 0 propose le couple client React/Vite et serveur
   NestJS ; Node 22 et npm workspaces en sont le socle commun.
 - PostgreSQL/Prisma est le choix retenu pour offrir une persistance relationnelle
-  et un accès TypeScript typé. Aucun schéma de domaine, client Prisma, migration
-  ou URL de connexion n’est introduit à ce stade.
+  et un accès TypeScript typé. Le premier lot d’identité ajoute un schéma
+  Prisma et sa migration réversible ; aucune URL de connexion ni intégration de
+  base à l’exécution n’est configurée.
 - Le PDF de spécification n’est pas présent dans ce worktree ; les décisions
   concrètes reprises ici sont celles précisées pour ce scaffold.
 
@@ -38,8 +39,8 @@ des capacités de l’hébergement cible.
 - L’API fournit `GET /health` et un test unitaire sans dépendance de base.
 - Les configurations TypeScript sont séparées pour éviter de confondre
   l’environnement navigateur/bundler avec celui de NestJS/Node.
-- L’ajout de persistance devra définir schéma, migrations, gestion de connexion,
-  secrets et stratégie de test avec le lot qui l’implémentera.
+- La gestion de connexion, les secrets et la stratégie de tests en base restent
+  à définir avec le lot qui activera la persistance.
 
 ## Validations restantes
 
