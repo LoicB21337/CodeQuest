@@ -49,18 +49,18 @@ Aucune valeur secrète n’est fournie par défaut. Les parcours refusent
 l’opération (503) si leur prérequis n’est pas configuré; ils ne simulent ni
 la livraison ni la vérification.
 
-| Variable | Usage |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL utilisé par Prisma et les migrations. |
-| `ACCESS_TOKEN_SECRET` | Clé aléatoire d’au moins 32 octets pour signer les JWT. |
-| `AUTH_FINGERPRINT_SECRET` | Clé aléatoire d’au moins 32 octets pour HMAC des identifiants de limitation et clés/idempotence. |
-| `APP_ORIGIN` | Origine exacte autorisée pour CORS et les contrôles CSRF. |
-| `COMPROMISED_PASSWORDS_FILE` | Fichier local contenant un fingerprint SHA-1 hexadécimal complet (40 caractères) par ligne, sans compte ni autre texte. Aucun fichier/liste n’est inclus. |
-| `MAIL_MODE` | Doit être `smtp`. Aucun transport mémoire ou succès fictif n’existe. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` | Serveur et expéditeur SMTP explicites. `SMTP_USER` et `SMTP_PASSWORD` doivent être fournis ensemble si l’auth SMTP est utilisée. |
-| `SMTP_SECURE` | Doit valoir `true` en production. En développement, un serveur SMTP local de test (par ex. Mailpit) peut utiliser le mode non TLS. |
-| `PUBLIC_API_URL` | Origine publique de l’API utilisée dans les liens e-mail; HTTPS en production. Les jetons restent dans le fragment URL et ne sont donc pas envoyés dans la requête GET ou le referrer. |
-| `HTTPS_CERT_FILE`, `HTTPS_KEY_FILE` | Paire facultative de fichiers TLS pour le serveur local; en production, TLS peut terminer au proxy approuvé de l’établissement. |
+| Variable                              | Usage                                                                                                                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                        | PostgreSQL utilisé par Prisma et les migrations.                                                                                                                                       |
+| `ACCESS_TOKEN_SECRET`                 | Clé aléatoire d’au moins 32 octets pour signer les JWT.                                                                                                                                |
+| `AUTH_FINGERPRINT_SECRET`             | Clé aléatoire d’au moins 32 octets pour HMAC des identifiants de limitation et clés/idempotence.                                                                                       |
+| `APP_ORIGIN`                          | Origine exacte autorisée pour CORS et les contrôles CSRF.                                                                                                                              |
+| `COMPROMISED_PASSWORDS_FILE`          | Fichier local contenant un fingerprint SHA-1 hexadécimal complet (40 caractères) par ligne, sans compte ni autre texte. Aucun fichier/liste n’est inclus.                              |
+| `MAIL_MODE`                           | Doit être `smtp`. Aucun transport mémoire ou succès fictif n’existe.                                                                                                                   |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` | Serveur et expéditeur SMTP explicites. `SMTP_USER` et `SMTP_PASSWORD` doivent être fournis ensemble si l’auth SMTP est utilisée.                                                       |
+| `SMTP_SECURE`                         | Doit valoir `true` en production. En développement, un serveur SMTP local de test (par ex. Mailpit) peut utiliser le mode non TLS.                                                     |
+| `PUBLIC_API_URL`                      | Origine publique de l’API utilisée dans les liens e-mail; HTTPS en production. Les jetons restent dans le fragment URL et ne sont donc pas envoyés dans la requête GET ou le referrer. |
+| `HTTPS_CERT_FILE`, `HTTPS_KEY_FILE`   | Paire facultative de fichiers TLS pour le serveur local; en production, TLS peut terminer au proxy approuvé de l’établissement.                                                        |
 
 Exemple de configuration de **développement** (valeurs sans secret, service
 SMTP à lancer explicitement) :

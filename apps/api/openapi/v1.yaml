@@ -27,28 +27,28 @@ paths:
         per normalized address and approximate source IP.
       security: []
       parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegistrationRequest'
+              $ref: "#/components/schemas/RegistrationRequest"
       responses:
-        '202':
+        "202":
           description: Request accepted without account-existence disclosure.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Accepted'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/Unavailable'
+                $ref: "#/components/schemas/Accepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /auth/verify-email:
     post:
       tags: [Authentication]
@@ -65,14 +65,14 @@ paths:
               required: [token]
               properties:
                 token:
-                  $ref: '#/components/schemas/ActionToken'
+                  $ref: "#/components/schemas/ActionToken"
       responses:
-        '204':
+        "204":
           description: Address verified and account activated.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '410':
-          $ref: '#/components/responses/ExpiredToken'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "410":
+          $ref: "#/components/responses/ExpiredToken"
   /auth/email-action:
     get:
       tags: [Authentication]
@@ -84,7 +84,7 @@ paths:
         reset requires the user to enter a new password.
       security: []
       responses:
-        '200':
+        "200":
           description: CSP-restricted email verification/reset form.
           headers:
             Cache-Control:
@@ -116,9 +116,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
       responses:
-        '200':
+        "200":
           description: Authenticated; access and refresh cookies are set.
           headers:
             Set-Cookie:
@@ -131,13 +131,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Session'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '503':
-          $ref: '#/components/responses/Unavailable'
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /auth/refresh:
     post:
       tags: [Authentication]
@@ -151,9 +151,9 @@ paths:
       security:
         - refreshCookie: []
       parameters:
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: "#/components/parameters/CsrfToken"
       responses:
-        '200':
+        "200":
           description: New access/refresh/CSRF cookies and session view.
           headers:
             Set-Cookie:
@@ -163,13 +163,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Session'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '503':
-          $ref: '#/components/responses/Unavailable'
+                $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /auth/logout:
     post:
       tags: [Authentication]
@@ -179,7 +179,7 @@ paths:
       security:
         - accessCookie: []
       parameters:
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: "#/components/parameters/CsrfToken"
       requestBody:
         required: false
         content:
@@ -192,17 +192,17 @@ paths:
                   type: boolean
                   default: false
       responses:
-        '204':
+        "204":
           description: Session(s) revoked and all authentication cookies expired.
           headers:
             Set-Cookie:
               schema:
                 type: string
               description: Expired access, refresh, and CSRF cookies.
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /auth/forgot-password:
     post:
       tags: [Authentication]
@@ -229,18 +229,18 @@ paths:
                   format: email
                   maxLength: 254
       responses:
-        '202':
+        "202":
           description: Request accepted without account-existence disclosure.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Accepted'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '503':
-          $ref: '#/components/responses/Unavailable'
+                $ref: "#/components/schemas/Accepted"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /auth/reset-password:
     post:
       tags: [Authentication]
@@ -258,18 +258,18 @@ paths:
               required: [token, newPassword]
               properties:
                 token:
-                  $ref: '#/components/schemas/ActionToken'
+                  $ref: "#/components/schemas/ActionToken"
                 newPassword:
-                  $ref: '#/components/schemas/Password'
+                  $ref: "#/components/schemas/Password"
       responses:
-        '204':
+        "204":
           description: Password changed and all sessions revoked.
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '410':
-          $ref: '#/components/responses/ExpiredToken'
-        '503':
-          $ref: '#/components/responses/Unavailable'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "410":
+          $ref: "#/components/responses/ExpiredToken"
+        "503":
+          $ref: "#/components/responses/Unavailable"
   /me:
     get:
       tags: [Account]
@@ -278,14 +278,14 @@ paths:
       security:
         - accessCookie: []
       responses:
-        '200':
+        "200":
           description: Current account profile.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
     patch:
       tags: [Account]
       operationId: updateMe
@@ -293,7 +293,7 @@ paths:
       security:
         - accessCookie: []
       parameters:
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: "#/components/parameters/CsrfToken"
       requestBody:
         required: true
         content:
@@ -307,20 +307,20 @@ paths:
                   minLength: 3
                   maxLength: 20
       responses:
-        '200':
+        "200":
           description: Updated account profile.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
     delete:
       tags: [Account]
       operationId: requestAccountDeletion
@@ -333,7 +333,7 @@ paths:
       security:
         - accessCookie: []
       parameters:
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: "#/components/parameters/CsrfToken"
       requestBody:
         required: true
         content:
@@ -348,7 +348,7 @@ paths:
                   minLength: 1
                   maxLength: 1024
       responses:
-        '202':
+        "202":
           description: Deletion scheduled for 30 days after the request; authentication cookies are expired.
           headers:
             Set-Cookie:
@@ -364,12 +364,12 @@ paths:
                   deletionScheduledAt:
                     type: string
                     format: date-time
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /me/export:
     get:
       tags: [Account]
@@ -378,7 +378,7 @@ paths:
       security:
         - accessCookie: []
       responses:
-        '200':
+        "200":
           description: JSON export of data currently represented by the API schema.
           headers:
             Cache-Control:
@@ -388,9 +388,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PersonalDataExport'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
+                $ref: "#/components/schemas/PersonalDataExport"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
   /me/sessions:
     get:
       tags: [Account]
@@ -399,7 +399,7 @@ paths:
       security:
         - accessCookie: []
       responses:
-        '200':
+        "200":
           description: Device, timestamps, approximate network prefix, and current-session marker.
           content:
             application/json:
@@ -410,9 +410,9 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/SessionRecord'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
+                      $ref: "#/components/schemas/SessionRecord"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
   /me/sessions/{sessionId}:
     delete:
       tags: [Account]
@@ -427,19 +427,19 @@ paths:
           schema:
             type: string
             format: uuid
-        - $ref: '#/components/parameters/CsrfToken'
+        - $ref: "#/components/parameters/CsrfToken"
       responses:
-        '204':
+        "204":
           description: Session revoked; no session-existence information is disclosed. Cookies are expired if this was the current session.
           headers:
             Set-Cookie:
               schema:
                 type: string
               description: Expired access, refresh, and CSRF cookies when revoking the current session.
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /admin/users:
     get:
       tags: [Administration]
@@ -448,21 +448,21 @@ paths:
       security:
         - accessCookie: []
       parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
       responses:
-        '200':
+        "200":
           description: One bounded page of accounts.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserPage'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: "#/components/schemas/UserPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /health:
     get:
       operationId: health
@@ -471,7 +471,7 @@ paths:
         - url: /
       security: []
       responses:
-        '200':
+        "200":
           description: API process is available.
           content:
             application/json:
@@ -544,7 +544,7 @@ components:
           maxLength: 20
           description: Unique pseudonym; normalized with NFKC and lowercase for comparison.
         password:
-          $ref: '#/components/schemas/Password'
+          $ref: "#/components/schemas/Password"
     LoginRequest:
       type: object
       additionalProperties: false
@@ -582,7 +582,7 @@ components:
       required: [user, permissions, expiresAt]
       properties:
         user:
-          $ref: '#/components/schemas/User'
+          $ref: "#/components/schemas/User"
         permissions:
           type: array
           uniqueItems: true
@@ -605,7 +605,7 @@ components:
         username:
           type: string
         displayName:
-          type: [string, 'null']
+          type: [string, "null"]
         status:
           type: string
           enum: [pending, active, suspended]
@@ -616,10 +616,10 @@ components:
           type: string
           format: date-time
         deletionRequestedAt:
-          type: [string, 'null']
+          type: [string, "null"]
           format: date-time
         deletionScheduledAt:
-          type: [string, 'null']
+          type: [string, "null"]
           format: date-time
     SessionRecord:
       type: object
@@ -639,9 +639,9 @@ components:
           type: string
           format: date-time
         userAgent:
-          type: [string, 'null']
+          type: [string, "null"]
         ipAddress:
-          type: [string, 'null']
+          type: [string, "null"]
           description: Approximate network prefix derived from the connection peer.
         current:
           type: boolean
@@ -655,7 +655,7 @@ components:
           type: string
           format: date-time
         user:
-          $ref: '#/components/schemas/User'
+          $ref: "#/components/schemas/User"
         roles:
           type: array
           items:
@@ -663,7 +663,7 @@ components:
         sessions:
           type: array
           items:
-            $ref: '#/components/schemas/SessionRecord'
+            $ref: "#/components/schemas/SessionRecord"
     UserPage:
       type: object
       additionalProperties: false
@@ -672,9 +672,9 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/User'
+            $ref: "#/components/schemas/User"
         nextCursor:
-          type: [string, 'null']
+          type: [string, "null"]
     ApiError:
       type: object
       additionalProperties: false
@@ -684,7 +684,7 @@ components:
           type: integer
         code:
           type: string
-          pattern: '^[A-Z][A-Z0-9_]+$'
+          pattern: "^[A-Z][A-Z0-9_]+$"
         message:
           type: string
         requestId:
@@ -707,31 +707,31 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
     Unauthenticated:
       description: Generic authentication failure; account state or identifier is not disclosed.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
     Forbidden:
       description: Permission check or CSRF/origin validation failed.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
     Conflict:
       description: Idempotency key conflict or username already in use.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
     ExpiredToken:
       description: Action token is invalid, expired, or already consumed.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
     RateLimited:
       description: Request rate limit exceeded.
       headers:
@@ -741,10 +741,10 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"
     Unavailable:
       description: Required SMTP, signing-key, fingerprint-key, or password-list configuration is unavailable.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ApiError'
+            $ref: "#/components/schemas/ApiError"

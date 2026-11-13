@@ -13,6 +13,7 @@ Depuis la racine du dépôt :
 
 ```sh
 npm install
+npm run db:generate --workspace=@codequest/api
 npm run dev --workspace @codequest/web
 npm run start:dev --workspace @codequest/api
 ```
