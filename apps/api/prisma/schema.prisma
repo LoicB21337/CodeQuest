@@ -19,33 +19,55 @@ enum AuthTokenPurpose {
 }
 
 model User {
-  id                String      @id @default(uuid()) @db.Uuid
-  email             String      @unique @db.VarChar(254)
-  displayName       String?     @map("display_name") @db.VarChar(80)
-  passwordHash      String      @map("password_hash") @db.VarChar(255)
-  status            UserStatus  @default(pending)
-  passwordChangedAt DateTime    @default(now()) @map("password_changed_at") @db.Timestamptz(6)
-  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  sessions          Session[]
-  authTokens        AuthToken[]
-  roles             UserRole[]
+  id                  String          @id @default(uuid()) @db.Uuid
+  email               String          @unique @db.VarChar(254)
+  username            String          @db.VarChar(20)
+  usernameNormalized  String          @unique @map("username_normalized") @db.VarChar(80)
+  displayName         String?         @map("display_name") @db.VarChar(80)
+  passwordHash        String          @map("password_hash") @db.VarChar(255)
+  status              UserStatus      @default(pending)
+  passwordChangedAt   DateTime        @default(now()) @map("password_changed_at") @db.Timestamptz(6)
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletionRequestedAt DateTime?       @map("deletion_requested_at") @db.Timestamptz(6)
+  deletionScheduledAt DateTime?       @map("deletion_scheduled_at") @db.Timestamptz(6)
+  sessions            Session[]
+  authTokens          AuthToken[]
+  roles               UserRole[]
+  loginThrottles      LoginThrottle[]
 
   @@map("users")
 }
 
 model Session {
-  id               String    @id @default(uuid()) @db.Uuid
-  userId           String    @map("user_id") @db.Uuid
-  tokenFingerprint Bytes     @unique @map("token_fingerprint")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  lastSeenAt       DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(6)
-  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
-  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String         @id @default(uuid()) @db.Uuid
+  userId                String         @map("user_id") @db.Uuid
+  tokenFingerprint      Bytes          @unique @map("token_fingerprint")
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt            DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  lastReauthenticatedAt DateTime       @default(now()) @map("last_reauthenticated_at") @db.Timestamptz(6)
+  expiresAt             DateTime       @map("expires_at") @db.Timestamptz(6)
+  revokedAt             DateTime?      @map("revoked_at") @db.Timestamptz(6)
+  userAgent             String?        @map("user_agent") @db.VarChar(255)
+  ipAddress             String?        @map("ip_address") @db.VarChar(64)
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens         RefreshToken[]
 
   @@index([userId, expiresAt])
   @@map("sessions")
+}
+
+model RefreshToken {
+  id               String    @id @default(uuid()) @db.Uuid
+  sessionId        String    @map("session_id") @db.Uuid
+  tokenFingerprint Bytes     @unique @map("token_fingerprint")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt       DateTime? @map("consumed_at") @db.Timestamptz(6)
+  session          Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, expiresAt])
+  @@map("refresh_tokens")
 }
 
 model AuthToken {
@@ -60,6 +82,31 @@ model AuthToken {
 
   @@index([userId, purpose, expiresAt])
   @@map("auth_tokens")
+}
+
+model LoginThrottle {
+  identifierFingerprint Bytes     @id @map("identifier_fingerprint")
+  userId                String?   @map("user_id") @db.Uuid
+  failedAttempts        Int       @default(0) @map("failed_attempts")
+  blockedUntil          DateTime? @map("blocked_until") @db.Timestamptz(6)
+  lastFailureAt         DateTime  @default(now()) @map("last_failure_at") @db.Timestamptz(6)
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([blockedUntil])
+  @@map("login_throttles")
+}
+
+model IdempotencyRecord {
+  scope              String   @db.VarChar(80)
+  keyFingerprint     Bytes    @map("key_fingerprint")
+  requestFingerprint Bytes    @map("request_fingerprint")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt          DateTime @map("expires_at") @db.Timestamptz(6)
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  @@id([scope, keyFingerprint])
+  @@index([expiresAt])
+  @@map("idempotency_records")
 }
 
 model Role {

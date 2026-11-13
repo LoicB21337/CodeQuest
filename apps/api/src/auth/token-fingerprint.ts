@@ -13,3 +13,7 @@ export function issueOpaqueToken(): IssuedOpaqueToken {
 export function fingerprintToken(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex');
 }
+
+export function databaseBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
+  return Uint8Array.from(value);
+}
