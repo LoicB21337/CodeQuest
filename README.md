@@ -36,26 +36,39 @@ PostgreSQL et Prisma sont les choix d’architecture retenus pour la persistance
 mais aucune base de données n’est requise pour compiler ou tester ce scaffold.
 L’hébergement institutionnel reste à valider techniquement.
 
-## Conteneurs locaux
+## Environnement local conteneurisé
 
-Les images se construisent depuis la racine du dépôt (contexte nécessaire aux
-workspaces npm) et utilisent des étapes de construction distinctes des étapes
-d’exécution :
+Compose démarre le web, l’API, PostgreSQL, Redis, MinIO et Mailpit. Les
+Dockerfiles web/API sont multi-stage et les deux conteneurs applicatifs
+s’exécutent sans privilèges root. Les ports hôte sont liés à `127.0.0.1`.
 
 ```sh
-docker build -f apps/api/Dockerfile -t codequest-api:local .
-docker run --rm -p 3000:3000 --env-file .env.example codequest-api:local
-
-docker build -f apps/web/Dockerfile -t codequest-web:local .
-docker run --rm -p 8080:8080 codequest-web:local
+docker compose --env-file .env.example up --build
+docker compose --env-file .env.example ps
+docker compose --env-file .env.example down
+docker compose --env-file .env.example down -v
 ```
 
-Le fichier `.env.example` ne contient que des valeurs factices. `PORT=3000` est
-utilisé par l’API ; `VITE_API_URL=http://localhost:3000` est un exemple réservé
-au client et n’est pas encore consommé par l’application. Ne placez aucune
-valeur secrète dans ce fichier. Ces images sont des outils de développement,
-pas une proposition de topologie de production. L’environnement
-d’hébergement institutionnel reste à inventorier.
+Le web est disponible sur `http://localhost:8080`, l’API et son healthcheck sur
+`http://localhost:3000/health`, la console MinIO sur `http://localhost:9001` et
+Mailpit sur `http://localhost:8025`. PostgreSQL, Redis, l’API S3 MinIO et SMTP
+écoutent respectivement sur les ports `5432`, `6379`, `9000` et `1025`.
+Compose vérifie l’état des conteneurs ; la commande `ps` ci-dessus affiche leur
+état de santé. PostgreSQL, Redis, MinIO et Mailpit conservent leurs données dans
+des volumes nommés. La dernière commande supprime ces volumes et réinitialise
+les données.
+
+`.env.example` ne contient que des valeurs factices locales. Les identifiants
+PostgreSQL, Redis et MinIO ne doivent jamais être réutilisés ailleurs. `PORT`
+est utilisé par l’API ; `VITE_API_URL` n’est pas encore consommé par le client.
+L’API actuelle n’est pas encore intégrée à PostgreSQL, Redis, MinIO ou Mailpit ;
+Compose ne prétend donc pas configurer ces connexions. Le Runner isolé n’étant
+pas implémenté, aucun service Runner n’est fourni et l’exécution de code soumis
+n’est pas disponible.
+
+Compose et ces images sont destinés au développement local, pas une proposition
+de topologie de production. L’environnement d’hébergement institutionnel reste
+à inventorier.
 
 La CI exécute formatage, lint, vérification de types, build, tests, audit des
 dépendances de production et détection de secrets. Dependabot propose les mises
