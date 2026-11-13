@@ -1,2 +1,6 @@
 *pdf
 /.planning/
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
