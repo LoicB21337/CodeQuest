@@ -1,0 +1,29 @@
+.app-shell {
+  --color-bg: #101725;
+  --color-surface: #182232;
+  --color-surface-raised: #202c3e;
+  --color-text: #f3f1e8;
+  --color-muted: #b7c1d0;
+  --color-border: #415064;
+  --color-accent: #d3f36b;
+  --color-accent-ink: #1b2511;
+  --color-secondary: #9dc5ff;
+  --color-focus: #f5b5e5;
+  --color-grid: rgb(173 197 224 / 5%);
+  color-scheme: dark;
+}
+
+.app-shell[data-theme='light'] {
+  --color-bg: #f4f1e8;
+  --color-surface: #fffdf6;
+  --color-surface-raised: #ebe6d7;
+  --color-text: #172235;
+  --color-muted: #49566a;
+  --color-border: #8c928e;
+  --color-accent: #41620e;
+  --color-accent-ink: #ffffff;
+  --color-secondary: #23549a;
+  --color-focus: #8c2767;
+  --color-grid: rgb(36 57 77 / 6%);
+  color-scheme: light;
+}
