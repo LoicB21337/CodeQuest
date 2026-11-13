@@ -1,0 +1,11 @@
+.git
+.planning
+node_modules
+**/node_modules
+**/dist
+**/coverage
+package-lock.json
+apps/*/src
+apps/api/jest.config.js
+apps/web/vite.config.ts
+docs/decisions
