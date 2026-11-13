@@ -1,0 +1,750 @@
+openapi: 3.1.0
+info:
+  title: CodeQuest API
+  version: 1.1.0
+  description: |
+    Phase 0 identity contract. These operations are served under /api/v1.
+    SMTP, database, signing keys, and a local compromised-password list are
+    explicit runtime prerequisites; affected routes return 503 when absent.
+servers:
+  - url: /api/v1
+tags:
+  - name: Authentication
+  - name: Account
+  - name: Administration
+paths:
+  /auth/register:
+    post:
+      tags: [Authentication]
+      operationId: register
+      summary: Register an unverified account
+      description: |
+        Email and username uniqueness are not disclosed. The route sends a
+        confirmation message and returns the same accepted response for
+        existing and new identifiers. A local SHA-1 compromised-password list
+        is required for password screening; SMTP and signing prerequisites are
+        not replaced by a fake success when unconfigured. Requests are limited
+        per normalized address and approximate source IP.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '202':
+          description: Request accepted without account-existence disclosure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /auth/verify-email:
+    post:
+      tags: [Authentication]
+      operationId: verifyEmail
+      summary: Verify an email address using its single-use link
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token:
+                  $ref: '#/components/schemas/ActionToken'
+      responses:
+        '204':
+          description: Address verified and account activated.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '410':
+          $ref: '#/components/responses/ExpiredToken'
+  /auth/email-action:
+    get:
+      tags: [Authentication]
+      operationId: openEmailAction
+      summary: Open a no-referrer email action page
+      description: |
+        The one-time token is placed in the URL fragment (not sent in the HTTP
+        request or referrer). The page posts it to the verify/reset operation;
+        reset requires the user to enter a new password.
+      security: []
+      responses:
+        '200':
+          description: CSP-restricted email verification/reset form.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+            Referrer-Policy:
+              schema:
+                type: string
+              example: no-referrer
+          content:
+            text/html:
+              schema:
+                type: string
+  /auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      summary: Authenticate by email or username
+      description: |
+        Unknown identifier, wrong password, unverified/suspended account, and
+        progressive lockout all use the same 401 response. Lockout begins
+        after five failed attempts; subsequent waits grow exponentially to a
+        15-minute cap. Successful authentication sets access, refresh, and CSRF
+        cookies; bearer material is never returned in JSON.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated; access and refresh cookies are set.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: >-
+                Sets __Host-cq_access and __Host-cq_refresh as HttpOnly,
+                Secure, SameSite=Lax, Path=/ host-only cookies, plus the
+                readable __Host-cq_csrf cookie with matching origin policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      operationId: refreshSession
+      summary: Rotate a refresh token
+      description: |
+        The refresh cookie is opaque, stored only by fingerprint, and valid for
+        at most 30 days of inactivity. Every use consumes the prior token and
+        rotates the family. Reuse of a consumed token revokes that session
+        family. Requires the CSRF cookie/header pair and matching Origin.
+      security:
+        - refreshCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '200':
+          description: New access/refresh/CSRF cookies and session view.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Rotated access, refresh, and CSRF cookies.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logout
+      summary: Revoke the current session or all account sessions
+      description: Requires an authenticated access cookie and CSRF validation.
+      security:
+        - accessCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                everywhere:
+                  type: boolean
+                  default: false
+      responses:
+        '204':
+          description: Session(s) revoked and all authentication cookies expired.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Expired access, refresh, and CSRF cookies.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/forgot-password:
+    post:
+      tags: [Authentication]
+      operationId: requestPasswordReset
+      summary: Request a password-reset link
+      description: |
+        Always sends the same neutral message and returns the same 202 for a
+        known or unknown address. A known account receives a one-hour
+        single-use link. Limited to five requests per address per hour and
+        twenty per approximate source IP. SMTP must be configured; requests do
+        not report success when delivery is not configured or available.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+      responses:
+        '202':
+          description: Request accepted without account-existence disclosure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Accepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /auth/reset-password:
+    post:
+      tags: [Authentication]
+      operationId: resetPassword
+      summary: Set a new password from a reset token
+      description: Consumes the one-time token and revokes every active session.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, newPassword]
+              properties:
+                token:
+                  $ref: '#/components/schemas/ActionToken'
+                newPassword:
+                  $ref: '#/components/schemas/Password'
+      responses:
+        '204':
+          description: Password changed and all sessions revoked.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '410':
+          $ref: '#/components/responses/ExpiredToken'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /me:
+    get:
+      tags: [Account]
+      operationId: getMe
+      summary: Read the authenticated profile
+      security:
+        - accessCookie: []
+      responses:
+        '200':
+          description: Current account profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    patch:
+      tags: [Account]
+      operationId: updateMe
+      summary: Update the authenticated username
+      security:
+        - accessCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 20
+      responses:
+        '200':
+          description: Updated account profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Account]
+      operationId: requestAccountDeletion
+      summary: Schedule account deletion
+      description: |
+        Requires password confirmation and CSRF validation. The account
+        becomes inaccessible and all sessions are revoked immediately;
+        identity records are hard-deleted after 30 days. Until challenge and
+        message entities exist, their required anonymization cannot be done.
+      security:
+        - accessCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  minLength: 1
+                  maxLength: 1024
+      responses:
+        '202':
+          description: Deletion scheduled for 30 days after the request; authentication cookies are expired.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Expired access, refresh, and CSRF cookies.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deletionScheduledAt]
+                properties:
+                  deletionScheduledAt:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /me/export:
+    get:
+      tags: [Account]
+      operationId: exportMyData
+      summary: Export personal account and session data
+      security:
+        - accessCookie: []
+      responses:
+        '200':
+          description: JSON export of data currently represented by the API schema.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalDataExport'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /me/sessions:
+    get:
+      tags: [Account]
+      operationId: listMySessions
+      summary: List active sessions for this account
+      security:
+        - accessCookie: []
+      responses:
+        '200':
+          description: Device, timestamps, approximate network prefix, and current-session marker.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SessionRecord'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+  /me/sessions/{sessionId}:
+    delete:
+      tags: [Account]
+      operationId: revokeMySession
+      summary: Revoke one session belonging to this account
+      security:
+        - accessCookie: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: Session revoked; no session-existence information is disclosed. Cookies are expired if this was the current session.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Expired access, refresh, and CSRF cookies when revoking the current session.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/users:
+    get:
+      tags: [Administration]
+      operationId: listUsers
+      summary: List accounts (requires user:read permission)
+      security:
+        - accessCookie: []
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One bounded page of accounts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /health:
+    get:
+      operationId: health
+      summary: API liveness check
+      servers:
+        - url: /
+      security: []
+      responses:
+        '200':
+          description: API process is available.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    const: ok
+components:
+  securitySchemes:
+    accessCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-cq_access
+      description: 15-minute HS256 JWT; HttpOnly, Secure, SameSite=Lax, Path=/, host-only.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-cq_refresh
+      description: Rotating opaque 30-day token; HttpOnly, Secure, SameSite=Lax, Path=/, host-only.
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID v4, HMAC-fingerprinted and scoped to auth.register for 24 hours.
+      schema:
+        type: string
+        format: uuid
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      description: Must constant-time match the readable __Host-cq_csrf cookie; Origin must match APP_ORIGIN.
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 128
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: Opaque UUID cursor returned by the prior page.
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+  schemas:
+    RegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [email, username, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        username:
+          type: string
+          minLength: 3
+          maxLength: 20
+          description: Unique pseudonym; normalized with NFKC and lowercase for comparison.
+        password:
+          $ref: '#/components/schemas/Password'
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [identifier, password]
+      properties:
+        identifier:
+          type: string
+          minLength: 1
+          maxLength: 254
+          description: Email address or username.
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+    Password:
+      type: string
+      minLength: 12
+      maxLength: 1024
+      description: Argon2id hashed. Never trim, normalize, log, or echo.
+    ActionToken:
+      type: string
+      minLength: 32
+      maxLength: 128
+      description: Random single-use token; only its SHA-256 fingerprint is stored.
+    Accepted:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: accepted
+    Session:
+      type: object
+      additionalProperties: false
+      required: [user, permissions, expiresAt]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, email, username, displayName, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        displayName:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [pending, active, suspended]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletionRequestedAt:
+          type: [string, 'null']
+          format: date-time
+        deletionScheduledAt:
+          type: [string, 'null']
+          format: date-time
+    SessionRecord:
+      type: object
+      additionalProperties: false
+      required: [id, createdAt, lastSeenAt, expiresAt, current]
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        userAgent:
+          type: [string, 'null']
+        ipAddress:
+          type: [string, 'null']
+          description: Approximate network prefix derived from the connection peer.
+        current:
+          type: boolean
+    PersonalDataExport:
+      type: object
+      required: [schemaVersion, exportedAt, user, roles, sessions]
+      properties:
+        schemaVersion:
+          const: 1
+        exportedAt:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/User'
+        roles:
+          type: array
+          items:
+            type: string
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionRecord'
+    UserPage:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        nextCursor:
+          type: [string, 'null']
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [status, code, message, requestId]
+      properties:
+        status:
+          type: integer
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]+$'
+        message:
+          type: string
+        requestId:
+          type: string
+          format: uuid
+        details:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, code]
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+  responses:
+    BadRequest:
+      description: Malformed request or DTO validation failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthenticated:
+      description: Generic authentication failure; account state or identifier is not disclosed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: Permission check or CSRF/origin validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Idempotency key conflict or username already in use.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    ExpiredToken:
+      description: Action token is invalid, expired, or already consumed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    RateLimited:
+      description: Request rate limit exceeded.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unavailable:
+      description: Required SMTP, signing-key, fingerprint-key, or password-list configuration is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'

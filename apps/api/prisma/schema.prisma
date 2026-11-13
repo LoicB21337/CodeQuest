@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  pending
+  active
+  suspended
+}
+
+enum AuthTokenPurpose {
+  email_verification
+  password_reset
+}
+
+model User {
+  id                  String          @id @default(uuid()) @db.Uuid
+  email               String          @unique @db.VarChar(254)
+  username            String          @db.VarChar(20)
+  usernameNormalized  String          @unique @map("username_normalized") @db.VarChar(80)
+  displayName         String?         @map("display_name") @db.VarChar(80)
+  passwordHash        String          @map("password_hash") @db.VarChar(255)
+  status              UserStatus      @default(pending)
+  passwordChangedAt   DateTime        @default(now()) @map("password_changed_at") @db.Timestamptz(6)
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletionRequestedAt DateTime?       @map("deletion_requested_at") @db.Timestamptz(6)
+  deletionScheduledAt DateTime?       @map("deletion_scheduled_at") @db.Timestamptz(6)
+  sessions            Session[]
+  authTokens          AuthToken[]
+  roles               UserRole[]
+  loginThrottles      LoginThrottle[]
+
+  @@map("users")
+}
+
+model Session {
+  id                    String         @id @default(uuid()) @db.Uuid
+  userId                String         @map("user_id") @db.Uuid
+  tokenFingerprint      Bytes          @unique @map("token_fingerprint")
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastSeenAt            DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  lastReauthenticatedAt DateTime       @default(now()) @map("last_reauthenticated_at") @db.Timestamptz(6)
+  expiresAt             DateTime       @map("expires_at") @db.Timestamptz(6)
+  revokedAt             DateTime?      @map("revoked_at") @db.Timestamptz(6)
+  userAgent             String?        @map("user_agent") @db.VarChar(255)
+  ipAddress             String?        @map("ip_address") @db.VarChar(64)
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens         RefreshToken[]
+
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+model RefreshToken {
+  id               String    @id @default(uuid()) @db.Uuid
+  sessionId        String    @map("session_id") @db.Uuid
+  tokenFingerprint Bytes     @unique @map("token_fingerprint")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt       DateTime? @map("consumed_at") @db.Timestamptz(6)
+  session          Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, expiresAt])
+  @@map("refresh_tokens")
+}
+
+model AuthToken {
+  id               String           @id @default(uuid()) @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  purpose          AuthTokenPurpose
+  tokenFingerprint Bytes            @unique @map("token_fingerprint")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt        DateTime         @map("expires_at") @db.Timestamptz(6)
+  consumedAt       DateTime?        @map("consumed_at") @db.Timestamptz(6)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, expiresAt])
+  @@map("auth_tokens")
+}
+
+model LoginThrottle {
+  identifierFingerprint Bytes     @id @map("identifier_fingerprint")
+  userId                String?   @map("user_id") @db.Uuid
+  failedAttempts        Int       @default(0) @map("failed_attempts")
+  blockedUntil          DateTime? @map("blocked_until") @db.Timestamptz(6)
+  lastFailureAt         DateTime  @default(now()) @map("last_failure_at") @db.Timestamptz(6)
+  user                  User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([blockedUntil])
+  @@map("login_throttles")
+}
+
+model IdempotencyRecord {
+  scope              String   @db.VarChar(80)
+  keyFingerprint     Bytes    @map("key_fingerprint")
+  requestFingerprint Bytes    @map("request_fingerprint")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt          DateTime @map("expires_at") @db.Timestamptz(6)
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz(6)
+
+  @@id([scope, keyFingerprint])
+  @@index([expiresAt])
+  @@map("idempotency_records")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(80)
+  description String?          @db.VarChar(255)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(120)
+  description String?          @db.VarChar(255)
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
