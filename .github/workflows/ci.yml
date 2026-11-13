@@ -47,7 +47,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Scan repository history
-        uses: gitleaks/gitleaks-action@v2.3.9
+        uses: gitleaks/gitleaks-action@v3.0.0
 
   dependency-review:
     name: Review dependency changes
